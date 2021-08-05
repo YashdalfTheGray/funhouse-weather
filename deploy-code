@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+
+# For now, only works on macOS because paths are linux based
+# and mount paths are hardcoded to macOS
+
+import getopt
+import shutil
+import sys
+import os
+import time
+
+help_message = """
+deploy-code [--from-location <library-location> --with-lib <json_list_of_libraries>]
+
+Options:
+  - -f, --from-location\tthe location of the downloaded Adafruit libraries bundle
+  - -l --with-lib\talso copy the copy the libraries specified by a JSON list of libraries
+"""
+
+
+def main(argv):
+    library_list = ""
+    from_location = ""
+    destination_path_root = "/Volumes/CIRCUITPY"
+
+    try:
+        opts, args = getopt.getopt(
+            argv, "hf:l:", ["help", "from-location=", "with-lib="])
+    except getopt.GetoptError:
+        print("deploy-code -f ./adafruit-libraries -l libraries.json")
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            print(help_message)
+            sys.exit()
+        elif opt in ("-l", "--with-lib"):
+            library_list = arg
+        elif opt in ("-f", "--from-location"):
+            from_location = arg
+
+    if not os.path.isdir(destination_path_root):
+        sys.exit(
+            "The volume CIRCUITPY wasn't found, can't deploy code to CircuitPython board."
+        )
+
+    if library_list and from_location:
+        print(
+            f"Deploying libraries from {from_location} to {destination_path_root}/lib")
+        os.system(f"./copy-lib -d -f {from_location} -l {library_list}")
+        time.sleep(1)
+
+    print(f"Copying code from ./code.py to {destination_path_root}/code.py")
+    shutil.copy("./code.py", f"{destination_path_root}/code.py")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
