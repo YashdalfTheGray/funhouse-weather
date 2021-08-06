@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Unlicense
 import board
+import time
 from digitalio import DigitalInOut, Direction, Pull
 from adafruit_funhouse import FunHouse
 
@@ -44,7 +45,7 @@ capleft_label = funhouse.add_text(
     text="Touch", text_position=(25, 10), text_color=0x606060
 )
 onoff_label = funhouse.add_text(
-    text="OFF", text_position=(10, 25), text_color=0x606060)
+    text="Touch", text_position=(10, 25), text_color=0x606060)
 up_label = funhouse.add_text(
     text="UP", text_position=(10, 10), text_color=0x606060)
 sel_label = funhouse.add_text(
@@ -94,3 +95,4 @@ while True:
     set_label_color(sensors[0].value, jst1_label, 0xFFFFFF)
     set_label_color(sensors[1].value, jst2_label, 0xFFFFFF)
     set_label_color(sensors[2].value, jst3_label, 0xFFFFFF)
+    time.sleep(0.01)
