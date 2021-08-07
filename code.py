@@ -1,98 +1,60 @@
-# SPDX-FileCopyrightText: 2017 Scott Shawcroft, written for Adafruit Industries
-# SPDX-FileCopyrightText: Copyright (c) 2021 Melissa LeBlanc-Williams for Adafruit Industries
-#
-# SPDX-License-Identifier: Unlicense
-import board
-import time
-from digitalio import DigitalInOut, Direction, Pull
-from adafruit_funhouse import FunHouse
+import ipaddress
+import ssl
+import wifi
+import socketpool
+import adafruit_requests
 
-funhouse = FunHouse(
-    default_bg=0x0F0F00,
-    scale=2,
-)
+# URLs to fetch from
+TEXT_URL = "http://wifitest.adafruit.com/testwifi/index.html"
+JSON_QUOTES_URL = "https://www.adafruit.com/api/quotes.php"
+JSON_STARS_URL = "https://api.github.com/repos/adafruit/circuitpython"
 
-funhouse.peripherals.set_dotstars(
-    0x800000, 0x808000, 0x008000, 0x000080, 0x800080)
+# Get wifi details and more from a secrets.py file
+try:
+    from secrets import secrets
+except ImportError:
+    print("WiFi secrets are kept in secrets.py, please add them there!")
+    raise
 
-# sensor setup
-sensors = []
-for p in (board.A0, board.A1, board.A2):
-    sensor = DigitalInOut(p)
-    sensor.direction = Direction.INPUT
-    sensor.pull = Pull.DOWN
-    sensors.append(sensor)
+print("ESP32-S2 WebClient Test")
 
+print("My MAC addr:", [hex(i) for i in wifi.radio.mac_address])
 
-def set_label_color(conditional, index, on_color):
-    if conditional:
-        funhouse.set_text_color(on_color, index)
-    else:
-        funhouse.set_text_color(0x606060, index)
+print("Available WiFi networks:")
+for network in wifi.radio.start_scanning_networks():
+    print("\t%s\t\tRSSI: %d\tChannel: %d" % (str(network.ssid, "utf-8"),
+                                             network.rssi, network.channel))
+wifi.radio.stop_scanning_networks()
 
+print("Connecting to %s" % secrets["ssid"])
+wifi.radio.connect(secrets["ssid"], secrets["password"])
+print("Connected to %s!" % secrets["ssid"])
+print("My IP address is", wifi.radio.ipv4_address)
 
-# Create the labels
-funhouse.display.show(None)
-slider_label = funhouse.add_text(
-    text="Slider:", text_position=(50, 30), text_color=0x606060
-)
-capright_label = funhouse.add_text(
-    text="Touch", text_position=(85, 10), text_color=0x606060
-)
-pir_label = funhouse.add_text(
-    text="PIR", text_position=(60, 10), text_color=0x606060)
-capleft_label = funhouse.add_text(
-    text="Touch", text_position=(25, 10), text_color=0x606060
-)
-onoff_label = funhouse.add_text(
-    text="Touch", text_position=(10, 25), text_color=0x606060)
-up_label = funhouse.add_text(
-    text="UP", text_position=(10, 10), text_color=0x606060)
-sel_label = funhouse.add_text(
-    text="SEL", text_position=(10, 60), text_color=0x606060)
-down_label = funhouse.add_text(
-    text="DOWN", text_position=(10, 100), text_color=0x606060
-)
-jst1_label = funhouse.add_text(
-    text="SENSOR 1", text_position=(40, 80), text_color=0x606060
-)
-jst2_label = funhouse.add_text(
-    text="SENSOR 2", text_position=(40, 95), text_color=0x606060
-)
-jst3_label = funhouse.add_text(
-    text="SENSOR 3", text_position=(40, 110), text_color=0x606060
-)
-temp_label = funhouse.add_text(
-    text="Temp:", text_position=(50, 45), text_color=0xFF00FF
-)
-pres_label = funhouse.add_text(
-    text="Pres:", text_position=(50, 60), text_color=0xFF00FF
-)
-funhouse.display.show(funhouse.splash)
+ipv4 = ipaddress.ip_address("8.8.4.4")
+print("Ping google.com: %f ms" % (wifi.radio.ping(ipv4)*1000))
 
-while True:
-    funhouse.set_text("Temp %0.1F" %
-                      funhouse.peripherals.temperature, temp_label)
-    funhouse.set_text("Pres %d" % funhouse.peripherals.pressure, pres_label)
+pool = socketpool.SocketPool(wifi.radio)
+requests = adafruit_requests.Session(pool, ssl.create_default_context())
 
-    print(funhouse.peripherals.temperature,
-          funhouse.peripherals.relative_humidity)
-    set_label_color(funhouse.peripherals.captouch6, onoff_label, 0x00FF00)
-    set_label_color(funhouse.peripherals.captouch7, capleft_label, 0x00FF00)
-    set_label_color(funhouse.peripherals.captouch8, capright_label, 0x00FF00)
+print("Fetching text from", TEXT_URL)
+response = requests.get(TEXT_URL)
+print("-" * 40)
+print(response.text)
+print("-" * 40)
 
-    slider = funhouse.peripherals.slider
-    if slider is not None:
-        funhouse.peripherals.dotstars.brightness = slider
-        funhouse.set_text("Slider: %1.1f" % slider, slider_label)
-    set_label_color(slider is not None, slider_label, 0xFFFF00)
+print("Fetching json from", JSON_QUOTES_URL)
+response = requests.get(JSON_QUOTES_URL)
+print("-" * 40)
+print(response.json())
+print("-" * 40)
 
-    set_label_color(funhouse.peripherals.button_up, up_label, 0xFF0000)
-    set_label_color(funhouse.peripherals.button_sel, sel_label, 0xFFFF00)
-    set_label_color(funhouse.peripherals.button_down, down_label, 0x00FF00)
+print()
 
-    set_label_color(funhouse.peripherals.pir_sensor, pir_label, 0xFF0000)
-    set_label_color(sensors[0].value, jst1_label, 0xFFFFFF)
-    set_label_color(sensors[1].value, jst2_label, 0xFFFFFF)
-    set_label_color(sensors[2].value, jst3_label, 0xFFFFFF)
-    time.sleep(0.01)
+print("Fetching and parsing json from", JSON_STARS_URL)
+response = requests.get(JSON_STARS_URL)
+print("-" * 40)
+print("CircuitPython GitHub Stars", response.json()["stargazers_count"])
+print("-" * 40)
+
+print("done")
