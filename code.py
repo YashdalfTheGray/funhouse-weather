@@ -9,6 +9,14 @@ from adafruit_funhouse import FunHouse
 # some global labbels/state that will exist
 value_label = None
 unit_label = None
+display_in_fahrenheit = True
+
+# temperature conversion function
+
+
+def c_to_f(c):
+    return c * 9.0 / 5.0 + 32.0
+
 
 # set up the sensors
 i2c = board.I2C()
@@ -34,5 +42,9 @@ value_label = funhouse.add_text(
 )
 
 while True:
-    funhouse.set_text(f"{dps310.temperature:.1f}", value_label)
+    temp_to_display = dps310.temperature
+    if display_in_fahrenheit:
+        temp_to_display = c_to_f(dps310.temperature)
+
+    funhouse.set_text(f"{temp_to_display:.1f}", value_label)
     time.sleep(0.5)
